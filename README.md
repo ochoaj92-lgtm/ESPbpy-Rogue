@@ -1,10 +1,57 @@
 # Pocket Poker — ESPBoy demo
 
-A native C++ poker roguelike inspired by Balatro, built for a standard ESPBoy with PlatformIO. Demo 0.1 contains one ante: three blinds, two joker shops, and victory/defeat screens. It uses an independent rules implementation and custom pixel graphics.
+A native C++ poker roguelike inspired by Balatro, built for a standard ESPBoy with PlatformIO and playable on PC. Demo 0.1 contains one ante: three blinds, two joker shops, and victory/defeat screens. It uses an independent rules implementation and custom pixel graphics.
 
 **Hardware testing is still pending.** No USB serial device was detected during development, so the display, physical controls, upload, and runtime stability have not yet been verified on an ESPBoy.
 
-## Build and upload
+## Play on PC — no ESPBoy or USB connection needed
+
+Open this project folder in VS Code and choose **Terminal → Run Task → Desktop: Play Pocket Poker**, or run:
+
+```sh
+python3 scripts/play_desktop.py
+```
+
+The launcher finds VS Code's PlatformIO Core and builds/opens the game. If your terminal is in the parent folder, use `python3 ESPbpy-Rogue/scripts/play_desktop.py` instead.
+
+From PlatformIO's terminal you can also run:
+
+```sh
+pio run -e desktop -t exec
+```
+
+If `pio` is not on your shell’s PATH:
+
+```sh
+~/.platformio/penv/bin/pio run -e desktop -t exec
+```
+
+The Linux desktop build needs SDL2 development files, `g++`, and `pkg-config`. All three are installed on the development CachyOS machine. PlatformIO builds the executable at `.pio/build/desktop/program` and launches it. To rebuild without opening the game, use `pio run -e desktop`; after building, you can launch `.pio/build/desktop/program` directly.
+
+The window starts at 640 × 640 and can be resized. It displays the same 128 × 128 game view with crisp pixel scaling. Click/focus the game window to use its keyboard controls:
+
+| PC key | ESPBoy control / action |
+|---|---|
+| Arrow keys | D-pad / move cursor or menu selection |
+| Z, Enter, or Space | A / select, confirm, or buy |
+| X or Escape | B / pause, back, or continue from shop |
+| Q | Upper-left / discard selected cards |
+| E | Upper-right / play selected cards |
+| Window close button | Quit the desktop application |
+
+Press Enter on NEW RUN, then Enter again to start the blind. Select cards with Z/Enter/Space and play them with E. Escape acts as the game’s B button; use the window close button to quit.
+
+The PC build runs the actual game screens, drawing code, input flow, and rules engine through a lightweight SDL2 display/button adapter. It is a desktop version of the game, not an ESP8266 CPU emulator. It supports testing gameplay and layout, but cannot verify ESPBoy hardware memory use, physical buttons, display wiring, or USB uploads. Desktop compilation, a visible-window keyboard smoke run, and automated UI integration checks all pass on this machine.
+
+For repeatable checks, run `python3 scripts/test_desktop.py`. It tests keyboard aliases, short taps, held keys, focus loss, pause/resume, discard/play, shops, boss victory, defeat, and restart with the actual UI and SDL's headless driver. The normal rules tests remain `pio test -e native`.
+
+You can also run a brief visible check and save its final screen:
+
+```sh
+python3 scripts/play_desktop.py --smoke-test --screenshot /tmp/pocket-poker.bmp
+```
+
+## Build and upload to ESPBoy
 
 The target is a stock ESP8266 ESPBoy: Wemos/LOLIN D1 mini, 80 MHz CPU, 4 MB flash, and a 128 × 128 display. The project follows the [ESPboy library’s PlatformIO setup](https://m1cr0lab-espboy.github.io/ESPboy/).
 
@@ -72,7 +119,7 @@ Action buttons trigger once per press; holding play or discard does not consume 
 | Restart/title confirmation | A confirms; B cancels |
 | Victory or defeat | A starts a new run; B returns to title |
 
-Restart and return-to-title discard the current run after confirmation. Booting starts at the title screen with no saved run. The demo is offline and silent: Wi-Fi is disabled, and there is no save/resume, audio, or desktop graphical emulator.
+Restart and return-to-title discard the current run after confirmation. Starting the application opens the title screen with no saved run. The demo is offline and silent: Wi-Fi is disabled on ESPBoy, and there is no save/resume or audio.
 
 ## Demo rules
 
@@ -151,9 +198,11 @@ These checks have **not been performed on hardware**. Passing desktop tests and 
 
 The portable engine is in `lib/PokerGame/src`, hardware drawing/setup is in `src/Device.*`, and screen/input orchestration is in `src/main.cpp`. The engine exposes seeded initialization, readable game state, play/discard/purchase/next-blind actions, and a shared score evaluator used for previews and committed plays. It has no Arduino dependency.
 
+The `desktop` environment compiles the same `src/main.cpp`, `src/Device.cpp`, and rules engine. `src/DesktopMain.cpp` supplies the PC entry point, while compatibility headers in `desktop/` adapt the display, buttons, and timing to SDL2. The default PlatformIO environment remains `espboy`; select `desktop` explicitly to build or play on PC. Desktop diagnostic memory values are compatibility values and do not measure an ESPBoy’s heap.
+
 Cards and jokers use fixed-size storage. Rendering reuses one 128 × 128 4-bit framebuffer, approximately 8 KB plus palette/driver overhead. The custom bitmap font, palette, and static text are stored in flash. Input is polled on a 5 ms schedule, rendering is limited to approximately 30 FPS, and score animation does not block the loop.
 
-[Screen previews](docs/screen-preview.png) show the actual drawing code rendered with software test fixtures, not photos of the device. A temporary host harness checked 16 screens, single-press/held-button behavior, selection preservation through pause, and the score → summary → shop → next-blind sequence. It is not part of the shipped firmware or a desktop emulator.
+[Screen previews](docs/screen-preview.png) show the actual drawing code rendered with software test fixtures, not photos of the device. A temporary host harness checked 16 screens, single-press/held-button behavior, selection preservation through pause, and the score → summary → shop → next-blind sequence. That verification harness is separate from the playable SDL2 desktop build described above.
 
 `pio test -e native` builds desktop Unity tests using a host C++ compiler. **32 tests passed** during development, including:
 
