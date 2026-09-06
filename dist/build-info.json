@@ -1,0 +1,59 @@
+{
+  "project": "Pocket Poker",
+  "version": "0.1.0",
+  "built_at_utc": "2026-09-05T20:22:32.583780+00:00",
+  "target": {
+    "board": "d1_mini",
+    "cpu_hz": 80000000,
+    "physical_flash_bytes": 4194304,
+    "application_limit_bytes": 1044464
+  },
+  "toolchain": {
+    "platformio_core": "6.1.19",
+    "espressif8266": "4.2.1",
+    "arduino_core": "3.1.2",
+    "xtensa_gcc": "10.3.0",
+    "toolchain_package": "2.100300.220621"
+  },
+  "libraries": {
+    "ESPboy": "1.2.1",
+    "LovyanGFX": "0.4.18",
+    "Adafruit MCP4725": "2.0.2",
+    "Adafruit MCP23017 Arduino Library": "2.3.2",
+    "Adafruit BusIO": "1.17.4"
+  },
+  "size_report": {
+    "static_ram_bytes": 30696,
+    "program_bytes": 324807,
+    "framebuffer_runtime_bytes_approx": 8193
+  },
+  "verification": {
+    "native_tests_passed": 32,
+    "exhaustive_five_card_hands_checked": 2598960,
+    "software_rendered_screens_checked": 16,
+    "espboy_build": "passed",
+    "diagnostic_build": "passed",
+    "hardware_upload_and_play_test": "pending: no USB ESPBoy detected"
+  },
+  "artifacts": {
+    "firmware.bin": {
+      "environment": "espboy",
+      "size_bytes": 328960,
+      "sha256": "8793ac561e5fc74c3cc93677113085801b055bac5f194178765ca3d34c8403b7"
+    },
+    "diagnostic.bin": {
+      "environment": "diagnostic",
+      "size_bytes": 328960,
+      "sha256": "fd03eb21b4ffe753b65c0485eb72850395a9077e0e2db3a11e6abd60ec31cc6d"
+    }
+  },
+  "source_sha256": {
+    "platformio.ini": "3b88807dc490ac761ee1df19ba3a3a6f35b448d36f4bbc06cab50f8a2aa79082",
+    "src/Device.cpp": "820c9dbddac9aeb94b826621247bdff25c67404af9a512105bdd7882ad9fe5d9",
+    "src/Device.h": "96f323247ff39e3469111d8060ed19cd033d896f48d207ab6f0a2a2ca44711e8",
+    "src/main.cpp": "8ffd4b85011a65787c2bbdf6f249a2460768167a354bc9f55d575c4de9a3cb4a",
+    "lib/PokerGame/src/PokerGame.cpp": "18df4414d11c9cb0d6d9b61f801528059ba12078ba2c35b69a72cebded6508e7",
+    "lib/PokerGame/src/PokerGame.h": "9c56c2f5620436d03b8241a16010a38799f19520ff3f3f7783541eb663d5f89f",
+    "test/test_game/test_main.cpp": "dea63624684f0cddc488963136bbf8f42a25e4fc3d4f60f291fab39734205327"
+  }
+}
