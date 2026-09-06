@@ -6,9 +6,9 @@ A native C++ poker roguelike inspired by Balatro, built for a standard ESPBoy wi
 
 ## Play in your browser
 
-**[Play Pocket Poker on GitHub Pages](https://ochoaj92-lgtm.github.io/ESPbpy-Rogue/)** — first deployment awaits the repository's Pages setting; see [publishing setup](#publish-the-browser-test-with-github-pages).
+**[Play Pocket Poker on GitHub Pages](https://ochoaj92-lgtm.github.io/ESPbpy-Rogue/)**
 
-The browser build lets you test the game without installing anything or connecting an ESPBoy. Once the page is published, open it, wait for the game to load, and click the game canvas to focus the keyboard. Use **Arrow keys** to move, **Z / Enter / Space** to select or confirm, **X / Escape** to pause or go back, **Q** to discard, and **E** to play. The page also provides buttons for these controls.
+The browser build lets you test the game without installing anything or connecting an ESPBoy. Open the page, wait for the game to load, and click the game canvas to focus the keyboard. Use **Arrow keys** to move, **Z / Enter / Space** to select or confirm, **X / Escape** to pause or go back, **Q** to discard, and **E** to play. The page also provides buttons for these controls.
 
 The desktop and browser versions use the same game screens and rules. There are no saves: refreshing or closing the page starts you over. The demo is silent.
 
@@ -242,9 +242,9 @@ For maintainers enabling the site for the first time:
 2. Push the browser build and Pages workflow to `main`. Check the repository’s **Actions** tab for the build and deployment result.
 3. After a successful deployment, open the [public test page](https://ochoaj92-lgtm.github.io/ESPbpy-Rogue/), start a run, and check keyboard controls and page buttons. Share that page link with testers.
 
-The code is already on `main`. If a workflow failed at **Configure GitHub Pages**, enable **GitHub Actions** in [Pages settings](https://github.com/ochoaj92-lgtm/ESPbpy-Rogue/settings/pages), then open the latest run under **Actions → Build and publish playable demo** and choose **Re-run failed jobs**. The workflow's normal token cannot enable Pages for the first time.
+If a workflow fails at **Configure GitHub Pages**, check that **GitHub Actions** is enabled in [Pages settings](https://github.com/ochoaj92-lgtm/ESPbpy-Rogue/settings/pages), then open the latest run under **Actions → Build and publish playable demo** and choose **Re-run failed jobs**. The workflow's normal token cannot enable Pages for the first time.
 
-The rules, desktop input, and browser checks pass locally and in GitHub Actions. Chromium testing includes keyboard and pointer controls, the Canvas 2D fallback, and a narrow touch layout. The first public deployment is blocked until Pages is enabled. Browser testing does not validate ESPBoy memory use, physical controls, or USB upload behavior.
+The rules, desktop input, and browser checks pass locally and in GitHub Actions. Chromium testing includes keyboard and pointer controls, the Canvas 2D fallback, and a narrow touch layout. The public GitHub Pages build also passes the browser smoke checks. Browser testing does not validate ESPBoy memory use, physical controls, or USB upload behavior.
 
 ### Build and preview the browser version locally
 
