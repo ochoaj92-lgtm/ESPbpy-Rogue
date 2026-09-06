@@ -41,7 +41,7 @@ jobs:
       - name: Test browser controls
         run: '"$RUNNER_TEMP/test-tools/bin/python" scripts/test_web.py'
       - name: Upload browser demo
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: build/web
 
@@ -57,7 +57,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Publish demo
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
