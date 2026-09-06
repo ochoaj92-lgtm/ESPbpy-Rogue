@@ -19,7 +19,10 @@ uint8_t selection = 0, cursor = 0, menuItem = 0, jokerIndex = 0;
 uint8_t diagnosticSeen = 0, diagnosticDown = 0;
 uint32_t lastPoll = 0, lastFrame = 0, lastStats = 0, screenSince = 0;
 uint32_t repeatAt[4] = {};
-uint32_t toastSince = 0, runs = 0, minHeap = 0;
+uint32_t toastSince = 0, runs = 0;
+#ifndef POCKET_POKER_DESKTOP
+uint32_t minHeap = 0;
+#endif
 const char* toast = nullptr;
 
 void changeScreen(Screen next) {
@@ -406,7 +409,9 @@ void input(uint32_t now) {
 
 void setup() {
     ready = device::begin();
+#ifndef POCKET_POKER_DESKTOP
     minHeap = ESP.getFreeHeap();
+#endif
 #ifdef ESPBOY_DIAGNOSTIC
     changeScreen(Screen::Diagnostics);
 #else

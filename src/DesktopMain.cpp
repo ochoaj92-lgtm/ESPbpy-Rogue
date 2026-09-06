@@ -9,6 +9,10 @@
 #include <cstdlib>
 #include <limits>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 void setup();
 void loop();
 
@@ -23,13 +27,16 @@ SDL_Renderer* renderer = nullptr;
 SDL_Texture* texture = nullptr;
 const LGFX_Sprite* latestCanvas = nullptr;
 std::array<bool, SDL_NUM_SCANCODES> keys{};
+#ifdef __EMSCRIPTEN__
+uint8_t pointerButtons = 0;
+#endif
 uint8_t pendingPresses = 0;
 bool active = true;
 bool repaint = false;
 bool videoFailed = false;
 uint64_t counterOrigin = 0;
 
-uint8_t keyboardButtons() {
+uint8_t heldButtons() {
     uint8_t mask = 0;
     if (keys[SDL_SCANCODE_LEFT]) mask |= 1u << Button::LEFT;
     if (keys[SDL_SCANCODE_UP]) mask |= 1u << Button::UP;
@@ -40,25 +47,43 @@ uint8_t keyboardButtons() {
     if (keys[SDL_SCANCODE_X] || keys[SDL_SCANCODE_ESCAPE]) mask |= 1u << Button::ESC;
     if (keys[SDL_SCANCODE_Q]) mask |= 1u << Button::TOP_LEFT;
     if (keys[SDL_SCANCODE_E]) mask |= 1u << Button::TOP_RIGHT;
+#ifdef __EMSCRIPTEN__
+    mask |= pointerButtons;
+#endif
     return mask;
 }
 
 void clearKeys() {
     keys.fill(false);
+#ifdef __EMSCRIPTEN__
+    pointerButtons = 0;
+#endif
     pendingPresses = 0;
     espboy.button.clear();
+}
+
+void displayFailed(const char* operation) {
+    std::fprintf(stderr, "%s: %s\n", operation, SDL_GetError());
+    videoFailed = true;
+    active = false;
 }
 
 void present() {
     if (!renderer || !texture || !latestCanvas) return;
     int width = 0, height = 0;
-    if (SDL_GetRendererOutputSize(renderer, &width, &height) != 0) return;
+    if (SDL_GetRendererOutputSize(renderer, &width, &height) != 0) {
+        displayFailed("Unable to read display size");
+        return;
+    }
     const int scale = std::max(1, std::min(width, height) / 128);
     const SDL_Rect destination{(width - 128 * scale) / 2, (height - 128 * scale) / 2,
                                128 * scale, 128 * scale};
-    SDL_SetRenderDrawColor(renderer, 11, 18, 25, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, texture, nullptr, &destination);
+    if (SDL_SetRenderDrawColor(renderer, 11, 18, 25, 255) != 0 ||
+        SDL_RenderClear(renderer) != 0 ||
+        SDL_RenderCopy(renderer, texture, nullptr, &destination) != 0) {
+        displayFailed("Unable to render display");
+        return;
+    }
     SDL_RenderPresent(renderer);
     repaint = false;
 }
@@ -69,9 +94,7 @@ void submit(const LGFX_Sprite& canvas) {
     void* data = nullptr;
     int pitch = 0;
     if (SDL_LockTexture(texture, nullptr, &data, &pitch) != 0) {
-        std::fprintf(stderr, "Unable to update display: %s\n", SDL_GetError());
-        videoFailed = true;
-        active = false;
+        displayFailed("Unable to update display");
         return;
     }
     for (int y = 0; y < 128; ++y) {
@@ -100,7 +123,17 @@ bool initializeVideo() {
     }
     SDL_SetWindowMinimumSize(window, 128, 128);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+#ifdef __EMSCRIPTEN__
+    // SDL's software renderer can report success before its first Canvas 2D
+    // access. Probe it now so an unavailable context becomes a handled startup
+    // error instead of a JavaScript exception during the first presentation.
+    if (!renderer && EM_ASM_INT({
+        try { return Module['canvas'].getContext('2d') ? 1 : 0; }
+        catch (error) { return 0; }
+    })) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+#else
     if (!renderer) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+#endif
     if (!renderer) {
         std::fprintf(stderr, "Unable to create renderer: %s\n", SDL_GetError());
         return false;
@@ -135,7 +168,7 @@ bool insideRoundRect(int x, int y, int width, int height, int radius) {
     return dx * dx + dy * dy <= radius * radius;
 }
 
-#ifndef POCKET_POKER_DESKTOP_TEST
+#if !defined(POCKET_POKER_DESKTOP_TEST) && !defined(__EMSCRIPTEN__)
 struct SmokeEvent { uint32_t at; SDL_Scancode key; bool down; };
 const SmokeEvent smokeEvents[] = {
     {120, SDL_SCANCODE_Z, true}, {200, SDL_SCANCODE_Z, false},
@@ -181,7 +214,15 @@ uint32_t micros() {
     return static_cast<uint32_t>((elapsed / frequency) * 1000000u +
                                  (elapsed % frequency) * 1000000u / frequency);
 }
-void delay(uint32_t milliseconds) { SDL_Delay(milliseconds); }
+void delay(uint32_t milliseconds) {
+#ifdef __EMSCRIPTEN__
+    // Each browser animation callback returns to JavaScript instead of sleeping
+    // on its main thread. The shared game's millis() checks still pace work.
+    (void)milliseconds;
+#else
+    SDL_Delay(milliseconds);
+#endif
+}
 
 int DesktopSerial::printf(const char* format, ...) {
     va_list arguments;
@@ -219,11 +260,11 @@ bool Button::held(uint8_t button, uint32_t delayMilliseconds) const {
 void ESPboy::update() {
     // A press/release can arrive between the game's 5 ms polls. Latch its
     // leading edge until a poll observes it, then resume the live key state.
-    button.read(keyboardButtons() | pendingPresses);
+    button.read(heldButtons() | pendingPresses);
     for (uint8_t i = 0; i < 8; ++i)
         if (button.pressed(i) || button.held(i)) pendingPresses &= ~(1u << i);
 }
-uint8_t ESPboy::buttons() const { return keyboardButtons(); }
+uint8_t ESPboy::buttons() const { return heldButtons(); }
 
 void* LGFX_Sprite::createSprite(int width, int height) {
     created_ = width == 128 && height == 128 && depth_ == 4;
@@ -319,9 +360,9 @@ void handleEvent(const SDL_Event& event) {
         if (event.key.repeat) return;
         const int code = event.key.keysym.scancode;
         if (code >= 0 && code < SDL_NUM_SCANCODES) {
-            const uint8_t previous = keyboardButtons();
+            const uint8_t previous = heldButtons();
             keys[code] = event.type == SDL_KEYDOWN;
-            pendingPresses |= keyboardButtons() & ~previous;
+            pendingPresses |= heldButtons() & ~previous;
         }
     }
 }
@@ -348,7 +389,71 @@ bool saveScreenshot(const char* path) {
 }
 }  // namespace host
 
+#ifdef __EMSCRIPTEN__
+// Pointer controls supply logical held states, independently of SDL's keyboard
+// aliases. The page aggregates pointer IDs before changing each button state.
+extern "C" EMSCRIPTEN_KEEPALIVE void pocket_key(int button, int down) {
+    if (button < 0 || button >= 8 || !host::running()) return;
+    const uint8_t previous = heldButtons();
+    const uint8_t bit = static_cast<uint8_t>(1u << button);
+    if (down) pointerButtons |= bit;
+    else pointerButtons &= ~bit;
+    pendingPresses |= heldButtons() & ~previous;
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE void pocket_release() { clearKeys(); }
+
 #ifndef POCKET_POKER_DESKTOP_TEST
+namespace {
+void browserFailure(const char* message) {
+    // Notify the page after stopping callbacks and releasing the SDL resources.
+    // Keep the message separate from SDL_GetError(), whose storage SDL owns.
+    emscripten_cancel_main_loop();
+    host::shutdown();
+    EM_ASM({
+        if (Module['onAbort']) Module['onAbort'](UTF8ToString($0));
+    }, message);
+}
+
+void browserFrame() {
+    static bool initialized = false;
+    if (!initialized) {
+        // SDL's GLES renderer sets the swap interval during construction.
+        // Emscripten requires a registered main loop before that timing call.
+        if (!host::initialize()) {
+            browserFailure("Unable to initialize the game display.");
+            return;
+        }
+        setup();
+        initialized = true;
+        // SDL may request zero-delay timers while disabling swap-interval
+        // synchronization. Browser presentation should still follow RAF.
+        emscripten_set_main_loop_timing(EM_TIMING_RAF, 1);
+    }
+    host::pollEvents();
+    if (host::running()) loop();
+    if (!host::running()) {
+        if (videoFailed) browserFailure("Unable to update the game display.");
+        else {
+            emscripten_cancel_main_loop();
+            host::shutdown();
+        }
+    }
+}
+}  // namespace
+#endif
+#endif
+
+#ifndef POCKET_POKER_DESKTOP_TEST
+#ifdef __EMSCRIPTEN__
+int main() {
+    std::puts("Pocket Poker browser: arrows move; Z/Enter/Space select; X/Escape back; Q discard; E play.");
+    // Zero FPS uses requestAnimationFrame; all game/UI state stays in the
+    // shared source files. Register before SDL initializes in the first frame.
+    emscripten_set_main_loop(browserFrame, 0, 1);
+    return 0;
+}
+#else
 int main(int argc, char** argv) {
     uint32_t frameLimit = 0;
     const char* screenshot = nullptr;
@@ -394,6 +499,7 @@ int main(int argc, char** argv) {
     host::shutdown();
     return status;
 }
+#endif
 #endif
 
 #endif  // POCKET_POKER_DESKTOP

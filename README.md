@@ -4,6 +4,25 @@ A native C++ poker roguelike inspired by Balatro, built for a standard ESPBoy wi
 
 **Hardware testing is still pending.** No USB serial device was detected during development, so the display, physical controls, upload, and runtime stability have not yet been verified on an ESPBoy.
 
+## Play in your browser
+
+**[Play Pocket Poker on GitHub Pages](https://ochoaj92-lgtm.github.io/ESPbpy-Rogue/)** — first deployment pending.
+
+The browser build lets you test the game without installing anything or connecting an ESPBoy. Once the page is published, open it, wait for the game to load, and click the game canvas to focus the keyboard. Use **Arrow keys** to move, **Z / Enter / Space** to select or confirm, **X / Escape** to pause or go back, **Q** to discard, and **E** to play. The page also provides buttons for these controls.
+
+The desktop and browser versions use the same game screens and rules. There are no saves: refreshing or closing the page starts you over. The demo is silent.
+
+## Your first run — desktop or browser
+
+1. Press **Enter** on **NEW RUN**, then Enter again to deal the first hand.
+2. Move with the **Arrow keys**. Press **Z, Enter, or Space** to select/deselect a card. Select one to five cards; gold cards with a `+` are selected.
+3. Look for matching ranks, five consecutive ranks, or five cards of one suit. The bottom panel shows your selected hand and its score before you commit.
+4. Press **E** to play and add that score toward the blind’s target. Press **Q** to discard selected cards and draw replacements while keeping the others. You get **four plays and four discards per blind**.
+5. Beat **300** to clear Small Blind. Press **Enter** to enter the shop, choose a joker with the arrows, and press Enter to buy if you can afford it. Press **X or Escape** when ready for the next blind; buying is optional.
+6. Beat **450** for Big Blind, visit the second shop, then beat **600** for The Manacle with only seven cards held. Win all three to finish the demo. Run out of plays below a target and the run ends; Enter starts another.
+
+Use **X or Escape** during a hand to pause, read your owned jokers, or review controls. Selecting cards does not spend a play; E commits the selection. A useful starting approach is to keep matching cards and discard unrelated cards while watching the score preview.
+
 ## Play on PC — no ESPBoy or USB connection needed
 
 Open this project folder in VS Code and choose **Terminal → Run Task → Desktop: Play Pocket Poker**, or run:
@@ -39,7 +58,7 @@ The window starts at 640 × 640 and can be resized. It displays the same 128 × 
 | E | Upper-right / play selected cards |
 | Window close button | Quit the desktop application |
 
-Press Enter on NEW RUN, then Enter again to start the blind. Select cards with Z/Enter/Space and play them with E. Escape acts as the game’s B button; use the window close button to quit.
+Follow [Your first run](#your-first-run--desktop-or-browser) above once the window opens. Escape acts as the game’s B button; use the window close button to quit.
 
 The PC build runs the actual game screens, drawing code, input flow, and rules engine through a lightweight SDL2 display/button adapter. It is a desktop version of the game, not an ESP8266 CPU emulator. It supports testing gameplay and layout, but cannot verify ESPBoy hardware memory use, physical buttons, display wiring, or USB uploads. Desktop compilation, a visible-window keyboard smoke run, and automated UI integration checks all pass on this machine.
 
@@ -119,7 +138,7 @@ Action buttons trigger once per press; holding play or discard does not consume 
 | Restart/title confirmation | A confirms; B cancels |
 | Victory or defeat | A starts a new run; B returns to title |
 
-Restart and return-to-title discard the current run after confirmation. Starting the application opens the title screen with no saved run. The demo is offline and silent: Wi-Fi is disabled on ESPBoy, and there is no save/resume or audio.
+Restart and return-to-title discard the current run after confirmation. Starting the application opens the title screen with no saved run. Gameplay is local and silent: Wi-Fi is disabled on ESPBoy, and there is no save/resume or audio. The browser version downloads its game files when loading the page.
 
 ## Demo rules
 
@@ -212,6 +231,49 @@ Cards and jokers use fixed-size storage. Rendering reuses one 128 × 128 4-bit f
 - Shop uniqueness/purchases, payouts and interest cap, blind transitions, seven-card boss hands, final-hand victory, defeat, and clean restart.
 
 Both `pio run -e espboy` and `pio run -e diagnostic` compile successfully. The game build uses **30,696 bytes of static RAM (37.5% of 81,920)** and **324,807 bytes of program space (31.1% of the 1,044,464-byte application limit)**. These static figures exclude the roughly 8 KB framebuffer allocation and other runtime heap use. Actual free heap and runtime stability require the connected-device checks above. The delivered binaries and checksums are recorded in `dist/build-info.json`.
+
+### Publish the browser test with GitHub Pages
+
+The browser build uses Emscripten 6.0.9 to compile the shared C++ game and SDL2 adapter to WebAssembly. `scripts/build_web.py` produces the static site in `build/web`; `.github/workflows/pages.yml` runs rules, desktop input, and browser checks before deploying that site from `main`. Pull requests run the same checks without publishing.
+
+For maintainers enabling the site for the first time:
+
+1. In the GitHub repository, open **Settings → Pages → Build and deployment** and choose **GitHub Actions** as the source. See [GitHub’s Pages workflow setup](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+2. Push the browser build and Pages workflow to `main`. Check the repository’s **Actions** tab for the build and deployment result.
+3. After a successful deployment, open the [public test page](https://ochoaj92-lgtm.github.io/ESPbpy-Rogue/), start a run, and check keyboard controls and page buttons. Share that page link with testers.
+
+The browser build has been tested locally in Chromium with keyboard and pointer controls, including its Canvas 2D fallback. Public deployment verification is pending until Pages is enabled. Browser testing does not validate ESPBoy memory use, physical controls, or USB upload behavior.
+
+### Build and preview the browser version locally
+
+Install the pinned [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) once, outside this project:
+
+```sh
+git clone https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+"$HOME/emsdk/emsdk" install 6.0.9
+"$HOME/emsdk/emsdk" activate 6.0.9
+```
+
+From this project folder, activate the SDK in your terminal, build, and serve the files:
+
+```sh
+source "$HOME/emsdk/emsdk_env.sh"
+python3 scripts/build_web.py
+python3 -m http.server 8000 --bind 127.0.0.1 --directory build/web
+```
+
+Open **http://localhost:8000** in your browser. Keep that terminal running; Ctrl+C stops the server. Opening `index.html` directly from disk will not load WebAssembly correctly. Generated files stay in the ignored `build/web` directory; GitHub Actions rebuilds them when publishing.
+
+To run the browser smoke checks locally after building:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install playwright==1.62.0
+.venv/bin/playwright install chromium
+.venv/bin/python scripts/test_web.py
+```
+
+The check starts its own temporary local server and tests keyboard, page buttons, focus changes, held play, and touch controls at a 320px viewport. Pass `--browser /path/to/chromium` to use an installed Chromium browser, or `--url https://ochoaj92-lgtm.github.io/ESPbpy-Rogue/` to test the published site. Linux CI installs Chromium's system dependencies with `playwright install --with-deps chromium`.
 
 ### Pinned dependencies and sources
 
