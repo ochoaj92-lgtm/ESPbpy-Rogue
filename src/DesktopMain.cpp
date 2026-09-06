@@ -75,9 +75,16 @@ void present() {
         displayFailed("Unable to read display size");
         return;
     }
+#ifdef __EMSCRIPTEN__
+    // Fill the responsive browser canvas, including narrow mobile layouts.
+    // The 128-pixel texture still uses nearest-neighbor filtering.
+    const int side = std::min(width, height);
+    const SDL_Rect destination{(width - side) / 2, (height - side) / 2, side, side};
+#else
     const int scale = std::max(1, std::min(width, height) / 128);
     const SDL_Rect destination{(width - 128 * scale) / 2, (height - 128 * scale) / 2,
                                128 * scale, 128 * scale};
+#endif
     if (SDL_SetRenderDrawColor(renderer, 11, 18, 25, 255) != 0 ||
         SDL_RenderClear(renderer) != 0 ||
         SDL_RenderCopy(renderer, texture, nullptr, &destination) != 0) {
