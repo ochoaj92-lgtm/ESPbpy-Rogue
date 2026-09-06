@@ -78,9 +78,16 @@ for (const name of ["keydown", "keyup"]) {
   window.addEventListener(name, event => {
     if (!playKeys.has(event.key)) return;
     if (document.activeElement === canvas) event.preventDefault();
-    // SDL listens on the document. Let focused HTML buttons keep their native
-    // Enter/Space activation, without also sending A to the game.
-    else event.stopPropagation();
+    else {
+      // SDL also installs window handlers. Keep page activation out of those
+      // handlers so a focused Back/Discard button cannot become game A.
+      event.stopImmediatePropagation();
+      const focused = document.activeElement;
+      if (focused.matches("button[data-key]") && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        if (name === "keydown" && !event.repeat) focused.click();
+      }
+    }
   }, true);
 }
 window.addEventListener("blur", releaseAll);
