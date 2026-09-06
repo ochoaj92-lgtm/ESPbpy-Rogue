@@ -1,0 +1,63 @@
+name: Build and publish playable demo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Emscripten
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 6.0.9
+          "$RUNNER_TEMP/emsdk/emsdk" activate 6.0.9
+      - name: Build browser demo
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          python3 scripts/build_web.py
+      - name: Set up native tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev pkg-config
+          python3 -m venv "$RUNNER_TEMP/test-tools"
+          "$RUNNER_TEMP/test-tools/bin/pip" install platformio==6.2.0 playwright==1.62.0
+          "$RUNNER_TEMP/test-tools/bin/playwright" install --with-deps chromium
+      - name: Test rules and desktop controls
+        run: |
+          "$RUNNER_TEMP/test-tools/bin/pio" test -e native
+          python3 scripts/test_desktop.py
+      - name: Test browser controls
+        run: '"$RUNNER_TEMP/test-tools/bin/python" scripts/test_web.py'
+      - name: Upload browser demo
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/web
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Publish demo
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -71,8 +71,12 @@ bool begin() {
     }
     for (int i = 0; i < 16; ++i)
         canvas.setPaletteColor(i, pgm_read_dword(palette + i));
+#ifdef POCKET_POKER_DESKTOP
+    Serial.println(F("Pocket Poker desktop: ESP8266 memory is not measured on the PC."));
+#else
     Serial.printf("Pocket Poker boot: heap=%u max_block=%u sketch=%u\n",
                   ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getSketchSize());
+#endif
     return true;
 }
 
@@ -178,9 +182,13 @@ void diagnostic(uint8_t down, uint8_t seen) {
         text(x + 3, y + 3, labels[i], down & (1 << i) ? Ink : Cream);
         if (seen & (1 << i)) canvas.fillRect(x + 54, y + 4, 3, 5, Green);
     }
+#ifdef POCKET_POKER_DESKTOP
+    text(3, 101, PSTR("PC PREVIEW / NO USB"), Muted);
+#else
     char buffer[22];
     snprintf(buffer, sizeof(buffer), "HEAP %u", ESP.getFreeHeap());
     text(3, 101, buffer, Muted);
+#endif
     footer(seen == 255 ? PSTR("ALL SEEN! HOLD B EXIT") : PSTR("PRESS ALL 8 BUTTONS"));
 }
 }

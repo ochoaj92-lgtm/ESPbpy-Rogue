@@ -19,7 +19,10 @@ uint8_t selection = 0, cursor = 0, menuItem = 0, jokerIndex = 0;
 uint8_t diagnosticSeen = 0, diagnosticDown = 0;
 uint32_t lastPoll = 0, lastFrame = 0, lastStats = 0, screenSince = 0;
 uint32_t repeatAt[4] = {};
-uint32_t toastSince = 0, runs = 0, minHeap = 0;
+uint32_t toastSince = 0, runs = 0;
+#ifndef POCKET_POKER_DESKTOP
+uint32_t minHeap = 0;
+#endif
 const char* toast = nullptr;
 
 void changeScreen(Screen next) {
@@ -36,10 +39,16 @@ void message(const char* value) {
 }
 
 void report(const char* event) {
+#ifdef POCKET_POKER_DESKTOP
+    Serial.printf("%s seed=%lu blind=%u phase=%u score=%lu cash=%u [desktop]\n",
+                  event, static_cast<unsigned long>(game.seed), game.blindIndex + 1,
+                  static_cast<unsigned>(game.phase), static_cast<unsigned long>(game.roundScore), game.cash);
+#else
     Serial.printf("%s seed=%lu blind=%u phase=%u score=%lu cash=%u heap=%u min_heap=%lu\n",
                   event, static_cast<unsigned long>(game.seed), game.blindIndex + 1,
                   static_cast<unsigned>(game.phase), static_cast<unsigned long>(game.roundScore),
                   game.cash, ESP.getFreeHeap(), static_cast<unsigned long>(minHeap));
+#endif
 }
 
 void newRun() {
@@ -61,7 +70,8 @@ void drawCard(int x, int y, const poker::Card& card, bool selected, bool focused
     canvas.fillRoundRect(x, y, 28, 25, 2, selected ? Gold : Cream);
     const uint8_t ink = card.suit == poker::Suit::Diamonds || card.suit == poker::Suit::Hearts ? Red : Ink;
     char rank[3] = {};
-    if (card.rank <= 10) snprintf(rank, sizeof(rank), "%u", card.rank);
+    if (card.rank < 10) rank[0] = static_cast<char>('0' + card.rank);
+    else if (card.rank == 10) { rank[0] = '1'; rank[1] = '0'; }
     else rank[0] = card.rank == 11 ? 'J' : card.rank == 12 ? 'Q' : card.rank == 13 ? 'K' : 'A';
     text(x + 3, y + 3, rank, ink);
     suit(x + 16, y + 12, static_cast<uint8_t>(card.suit), ink);
@@ -107,7 +117,7 @@ void drawIntro() {
 void drawHand() {
     canvas.fillSprite(Felt);
     canvas.fillRect(0, 0, 128, 32, Background);
-    char buffer[24];
+    char buffer[32];
     const char* blind = game.blindIndex == 0 ? PSTR("SMALL") : game.blindIndex == 1 ? PSTR("BIG") : PSTR("MANACLE");
     text(3, 2, blind, Gold);
     snprintf(buffer, sizeof(buffer), "$%u J%u", game.cash, game.jokerCount);
@@ -135,7 +145,7 @@ void drawHand() {
 void drawScore(uint32_t now) {
     heading(PSTR("HAND SCORED"));
     centered(27, poker::handName(game.lastScore.type), Gold);
-    char buffer[22];
+    char buffer[32];
     snprintf(buffer, sizeof(buffer), "%u CHIPS", game.lastScore.chips);
     centered(43, buffer, Blue);
     snprintf(buffer, sizeof(buffer), "X %u MULT", game.lastScore.mult);
@@ -154,7 +164,7 @@ void drawSummary() {
     const bool lost = game.phase == Phase::Lost;
     heading(lost ? PSTR("RUN OVER") : game.phase == Phase::Won ? PSTR("DEMO COMPLETE!") : PSTR("BLIND CLEARED!"));
     centered(25, poker::blindName(game.blindIndex), Gold);
-    char buffer[22];
+    char buffer[32];
     snprintf(buffer, sizeof(buffer), "%lu / %lu", static_cast<unsigned long>(game.roundScore),
              static_cast<unsigned long>(poker::blindTarget(game.blindIndex)));
     centered(39, buffer, Cream);
@@ -201,12 +211,21 @@ void drawPause() {
 }
 
 void drawHelp() {
+#ifdef POCKET_POKER_DESKTOP
+    heading(PSTR("PC CONTROLS"));
+    text(4, 24, PSTR("ARROWS   MOVE"));
+    text(4, 37, PSTR("Z/ENTER  SELECT/BUY"));
+    text(4, 50, PSTR("X/ESC    PAUSE/BACK"));
+    text(4, 63, PSTR("Q        DISCARD"));
+    text(4, 76, PSTR("E        PLAY HAND"));
+#else
     heading(PSTR("CONTROLS"));
     text(4, 24, PSTR("D-PAD  MOVE CURSOR"));
     text(4, 37, PSTR("A      SELECT / BUY"));
     text(4, 50, PSTR("B      PAUSE / BACK"));
     text(4, 63, PSTR("L TOP  DISCARD"));
     text(4, 76, PSTR("R TOP  PLAY HAND"));
+#endif
     wrapped(4, 93, PSTR("Select 1-5 cards. Beat the target."), 20, Gold, 2);
     footer(PSTR("A OR B BACK"));
 }
@@ -390,7 +409,9 @@ void input(uint32_t now) {
 
 void setup() {
     ready = device::begin();
+#ifndef POCKET_POKER_DESKTOP
     minHeap = ESP.getFreeHeap();
+#endif
 #ifdef ESPBOY_DIAGNOSTIC
     changeScreen(Screen::Diagnostics);
 #else
@@ -415,10 +436,12 @@ void loop() {
     }
     if (now - lastStats >= 5000) {
         lastStats = now;
+#ifndef POCKET_POKER_DESKTOP
         const uint32_t heap = ESP.getFreeHeap();
         if (heap < minHeap) minHeap = heap;
         Serial.printf("health heap=%u min_heap=%lu max_block=%u screen=%u\n", heap,
                       static_cast<unsigned long>(minHeap), ESP.getMaxFreeBlockSize(), static_cast<unsigned>(screen));
+#endif
         if (screen == Screen::Diagnostics) dirty = true;
     }
     if (ready && dirty && now - lastFrame >= 33) {

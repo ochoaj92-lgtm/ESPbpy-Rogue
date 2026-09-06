@@ -1,0 +1,14 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Desktop: Play Pocket Poker",
+            "type": "process",
+            "command": "python3",
+            "args": ["${workspaceFolder}/scripts/play_desktop.py"],
+            "options": {"cwd": "${workspaceFolder}"},
+            "problemMatcher": "$gcc",
+            "presentation": {"reveal": "always", "panel": "dedicated"}
+        }
+    ]
+}
